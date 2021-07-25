@@ -96,20 +96,25 @@ public class QuorumPeerMain {
     protected void initializeAndRun(String[] args)
         throws ConfigException, IOException
     {
+        // 创建了一个用于解析配置文件的类
         QuorumPeerConfig config = new QuorumPeerConfig();
+        // 如果只有一个参数, 默认就是配置文件zoo.cfg
         if (args.length == 1) {
             config.parse(args[0]);
         }
 
         // Start and schedule the the purge task
+        // 启动后台线程,定期清理zk的日志文件和快照文件
         DatadirCleanupManager purgeMgr = new DatadirCleanupManager(config
                 .getDataDir(), config.getDataLogDir(), config
                 .getSnapRetainCount(), config.getPurgeInterval());
         purgeMgr.start();
 
         if (args.length == 1 && config.servers.size() > 0) {
+            // 集群模式启动
             runFromConfig(config);
         } else {
+            // 单机模式启动
             LOG.warn("Either no config or no quorum defined in config, running "
                     + " in standalone mode");
             // there is only server in the quorum -- run as standalone
@@ -119,6 +124,7 @@ public class QuorumPeerMain {
 
     public void runFromConfig(QuorumPeerConfig config) throws IOException {
       try {
+          // jmx
           ManagedUtil.registerLog4jMBeans();
       } catch (JMException e) {
           LOG.warn("Unable to register log4j JMX control", e);
@@ -126,12 +132,14 @@ public class QuorumPeerMain {
   
       LOG.info("Starting quorum peer");
       try {
+          // 网络连接工厂
           ServerCnxnFactory cnxnFactory = ServerCnxnFactory.createFactory();
           cnxnFactory.configure(config.getClientPortAddress(),
                                 config.getMaxClientCnxns());
-  
+          // 代表了一个zk节点
           quorumPeer = new QuorumPeer();
           quorumPeer.setClientPortAddress(config.getClientPortAddress());
+          // 磁盘数据管理组件
           quorumPeer.setTxnFactory(new FileTxnSnapLog(
                       new File(config.getDataLogDir()),
                       new File(config.getDataDir())));
@@ -145,6 +153,7 @@ public class QuorumPeerMain {
           quorumPeer.setSyncLimit(config.getSyncLimit());
           quorumPeer.setQuorumVerifier(config.getQuorumVerifier());
           quorumPeer.setCnxnFactory(cnxnFactory);
+          // 内存数据库
           quorumPeer.setZKDatabase(new ZKDatabase(quorumPeer.getTxnFactory()));
           quorumPeer.setLearnerType(config.getPeerType());
   

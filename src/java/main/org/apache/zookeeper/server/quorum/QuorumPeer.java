@@ -406,9 +406,12 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
     
     @Override
     public synchronized void start() {
+        // 磁盘/日志/快照文件恢复的加载
         loadDataBase();
-        cnxnFactory.start();        
+        cnxnFactory.start();
+        // leader选举初始化
         startLeaderElection();
+        // leader选举
         super.start();
     }
 
@@ -463,6 +466,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
     }
     synchronized public void startLeaderElection() {
     	try {
+    	    // 封装当前的选票
     		currentVote = new Vote(myid, getLastLoggedZxid(), getCurrentEpoch());
     	} catch(IOException e) {
     		RuntimeException re = new RuntimeException(e.getMessage());
@@ -470,6 +474,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
     		throw re;
     	}
         for (QuorumServer p : getView().values()) {
+            // 找到自己的id, 取出自己的地址
             if (p.id == myid) {
                 myQuorumAddr = p.addr;
                 break;
@@ -478,6 +483,8 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
         if (myQuorumAddr == null) {
             throw new RuntimeException("My id " + myid + " not in the peer list");
         }
+        // zk支持多种选举算法
+        // 0: UDP 可能会丢失数据
         if (electionType == 0) {
             try {
                 udpSocket = new DatagramSocket(myQuorumAddr.getPort());
@@ -487,6 +494,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                 throw new RuntimeException(e);
             }
         }
+        // 创建出投票算法
         this.electionAlg = createElectionAlgorithm(electionType);
     }
     
@@ -571,6 +579,8 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
         Election le=null;
                 
         //TODO: use a factory rather than a switch
+
+        // 0, 1, 2 废弃掉了, 只支持3
         switch (electionAlgorithm) {
         case 0:
             le = new LeaderElection(this);
@@ -582,9 +592,11 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
             le = new AuthFastLeaderElection(this, true);
             break;
         case 3:
+            //zk节点间网络通信的组件
             qcm = new QuorumCnxManager(this);
             QuorumCnxManager.Listener listener = qcm.listener;
             if(listener != null){
+                // org.apache.zookeeper.server.quorum.QuorumCnxManager.Listener.run
                 listener.start();
                 le = new FastLeaderElection(this, qcm);
             } else {
@@ -633,6 +645,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                 cnxnFactory.getLocalAddress());
 
         LOG.debug("Starting quorum peer");
+        // jmx
         try {
             jmxQuorumBean = new QuorumBean(this);
             MBeanRegistry.getInstance().register(jmxQuorumBean, null);
@@ -665,10 +678,12 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
              * Main loop
              */
             while (running) {
+                // 刚刚启动,默认为looking,寻找leader的过程
+                // 没有leader就投票
                 switch (getPeerState()) {
                 case LOOKING:
                     LOG.info("LOOKING");
-
+                    // 只读模式
                     if (Boolean.getBoolean("readonlymode.enabled")) {
                         LOG.info("Attempting to start ReadOnlyZooKeeperServer");
 
@@ -701,6 +716,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                         };
                         try {
                             roZkMgr.start();
+                            // 选举入口 org.apache.zookeeper.server.quorum.FastLeaderElection.lookForLeader
                             setCurrentVote(makeLEStrategy().lookForLeader());
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception",e);
@@ -713,6 +729,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
                         }
                     } else {
                         try {
+                            // 开启投票
                             setCurrentVote(makeLEStrategy().lookForLeader());
                         } catch (Exception e) {
                             LOG.warn("Unexpected exception", e);

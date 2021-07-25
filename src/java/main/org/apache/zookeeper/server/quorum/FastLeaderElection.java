@@ -551,8 +551,8 @@ public class FastLeaderElection implements Election {
      * Check if a pair (server id, zxid) succeeds our
      * current vote.
      *
-     * @param id    Server identifier
-     * @param zxid  Last zxid observed by the issuer of this vote
+     //* @param inewIdd    Server identifier
+     //* @param zxid  Last zxid observed by the issuer of this vote
      */
     protected boolean totalOrderPredicate(long newId, long newZxid, long newEpoch, long curId, long curZxid, long curEpoch) {
         LOG.debug("id: " + newId + ", proposed id: " + curId + ", zxid: 0x" +
@@ -579,8 +579,8 @@ public class FastLeaderElection implements Election {
      * have sufficient to declare the end of the election round.
      *
      *  @param votes    Set of votes
-     *  @param l        Identifier of the vote received last
-     *  @param zxid     zxid of the the vote received last
+     *  @param vote        Identifier of the vote received last
+     //*  @param vote     zxid of the the vote received last
      */
     private boolean termPredicate(
             HashMap<Long, Vote> votes,
@@ -714,6 +714,7 @@ public class FastLeaderElection implements Election {
      * sends notifications to all other peers.
      */
     public Vote lookForLeader() throws InterruptedException {
+        // jmx
         try {
             self.jmxLeaderElectionBean = new LeaderElectionBean();
             MBeanRegistry.getInstance().register(
@@ -734,11 +735,13 @@ public class FastLeaderElection implements Election {
 
             synchronized(this){
                 logicalclock++;
+                // 更新选举信息
                 updateProposal(getInitId(), getInitLastLoggedZxid(), getPeerEpoch());
             }
 
             LOG.info("New election. My id =  " + self.getId() +
                     ", proposed zxid=0x" + Long.toHexString(proposedZxid));
+            // 把自己的投票放入发送队列中
             sendNotifications();
 
             /*
@@ -751,6 +754,7 @@ public class FastLeaderElection implements Election {
                  * Remove next notification from queue, times out after 2 times
                  * the termination time
                  */
+                // 尝试取出接收到的消息
                 Notification n = recvqueue.poll(notTimeout,
                         TimeUnit.MILLISECONDS);
 
@@ -769,11 +773,10 @@ public class FastLeaderElection implements Election {
                      * Exponential backoff
                      */
                     int tmpTimeOut = notTimeout*2;
-                    notTimeout = (tmpTimeOut < maxNotificationInterval?
-                            tmpTimeOut : maxNotificationInterval);
+                    notTimeout = (Math.min(tmpTimeOut, maxNotificationInterval));
                     LOG.info("Notification time out: " + notTimeout);
-                }
-                else if(self.getVotingView().containsKey(n.sid)) {
+                } else if(self.getVotingView().containsKey(n.sid)) {
+                    // 收到了消息
                     /*
                      * Only proceed if the vote comes from a replica in the
                      * voting view.
@@ -848,6 +851,7 @@ public class FastLeaderElection implements Election {
                         LOG.debug("Notification from observer: " + n.sid);
                         break;
                     case FOLLOWING:
+                        // 有人是leader了
                     case LEADING:
                         /*
                          * Consider all notifications from the same epoch
@@ -858,6 +862,7 @@ public class FastLeaderElection implements Election {
                             if(termPredicate(recvset, new Vote(n.leader,
                                             n.zxid, n.electionEpoch, n.peerEpoch, n.state))
                                             && checkLeader(outofelection, n.leader, n.electionEpoch)) {
+                                // 设置当前状态
                                 self.setPeerState((n.leader == self.getId()) ?
                                         ServerState.LEADING: learningState());
 
@@ -867,9 +872,9 @@ public class FastLeaderElection implements Election {
                             }
                         }
 
-                        /**
-                         * Before joining an established ensemble, verify that
-                         * a majority are following the same leader.
+                        /*
+                          Before joining an established ensemble, verify that
+                          a majority are following the same leader.
                          */
                         outofelection.put(n.sid, new Vote(n.leader, n.zxid,
                                 n.electionEpoch, n.peerEpoch, n.state));
