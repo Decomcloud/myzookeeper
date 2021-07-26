@@ -170,6 +170,7 @@ public class FastLeaderElection implements Election {
         long peerEpoch;
     }
 
+    // 都是从quorumCnxManager中的receive获取的数据, 放入对应的queue中
     LinkedBlockingQueue<ToSend> sendqueue;
     LinkedBlockingQueue<Notification> recvqueue;
 
@@ -202,6 +203,7 @@ public class FastLeaderElection implements Election {
                 while (!stop) {
                     // Sleeps on receive
                     try{
+                        // 从manager中的receive queue中获取数据
                         response = manager.pollRecvQueue(3000, TimeUnit.MILLISECONDS);
                         if(response == null) continue;
 
@@ -389,7 +391,7 @@ public class FastLeaderElection implements Election {
                 requestBuffer.putLong(m.zxid);
                 requestBuffer.putLong(m.electionEpoch);
                 requestBuffer.putLong(m.peerEpoch);
-
+                // 放入每台机器对应的sendQueue
                 manager.toSend(m.sid, requestBuffer);
 
             }
@@ -418,8 +420,12 @@ public class FastLeaderElection implements Election {
             Thread t = new Thread(this.ws,
                     "WorkerSender[myid=" + self.getId() + "]");
             t.setDaemon(true);
+            // 启动WorkerSender
+            // sendqueue中取出数据
             t.start();
 
+            // 启动WorkerReceiver
+            // sendqueue中放入数据
             this.wr = new WorkerReceiver(manager);
 
             t = new Thread(this.wr,
@@ -465,6 +471,7 @@ public class FastLeaderElection implements Election {
     public FastLeaderElection(QuorumPeer self, QuorumCnxManager manager){
         this.stop = false;
         this.manager = manager;
+        // 构造函数初始化, 启动WorkerSender
         starter(self, manager);
     }
 
@@ -485,6 +492,7 @@ public class FastLeaderElection implements Election {
 
         sendqueue = new LinkedBlockingQueue<ToSend>();
         recvqueue = new LinkedBlockingQueue<Notification>();
+        // 实例化的时候WorkerSender
         this.messenger = new Messenger(manager);
     }
 
@@ -754,7 +762,7 @@ public class FastLeaderElection implements Election {
                  * Remove next notification from queue, times out after 2 times
                  * the termination time
                  */
-                // 尝试取出接收到的消息
+                // 尝试取出接收到的消息 先从quorumCnxManager中取出, 包装处理后放入这个receive queue中
                 Notification n = recvqueue.poll(notTimeout,
                         TimeUnit.MILLISECONDS);
 
@@ -763,9 +771,12 @@ public class FastLeaderElection implements Election {
                  * Otherwise processes new notification.
                  */
                 if(n == null){
+
                     if(manager.haveDelivered()){
                         sendNotifications();
                     } else {
+                        // 第一次进来, 发送map应该为空
+                        // 连接
                         manager.connectAll();
                     }
 

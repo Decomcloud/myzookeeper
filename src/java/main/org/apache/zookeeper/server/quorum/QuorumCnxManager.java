@@ -186,6 +186,7 @@ public class QuorumCnxManager {
         }
         
         // If lost the challenge, then drop the new connection
+        // 只会去连接比自己id小的host
         if (sid > self.getId()) {
             LOG.info("Have smaller server identifier, so dropping the " +
                      "connection: (" + sid + ", " + self.getId() + ")");
@@ -193,6 +194,7 @@ public class QuorumCnxManager {
             // Otherwise proceed with the connection
         } else {
             SendWorker sw = new SendWorker(sock, sid);
+            // 接受请求
             RecvWorker rw = new RecvWorker(sock, sid, sw);
             sw.setRecv(rw);
 
@@ -314,6 +316,7 @@ public class QuorumCnxManager {
                  ArrayBlockingQueue<ByteBuffer> bq = new ArrayBlockingQueue<ByteBuffer>(
                          SEND_CAPACITY);
                  queueSendMap.put(sid, bq);
+                 // 添加到对应的sendQueue
                  addToSendQueue(bq, b);
 
              } else {
@@ -349,12 +352,14 @@ public class QuorumCnxManager {
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Opening channel to server " + sid);
                 }
+                // 封装socket
                 Socket sock = new Socket();
                 setSockOpts(sock);
                 sock.connect(self.getView().get(sid).electionAddr, cnxTO);
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Connected to server " + sid);
                 }
+                // 发送
                 initiateConnection(sock, sid);
             } catch (UnresolvedAddressException e) {
                 // Sun doesn't include the address that causes this
@@ -385,6 +390,7 @@ public class QuorumCnxManager {
         for(Enumeration<Long> en = queueSendMap.keys();
             en.hasMoreElements();){
             sid = en.nextElement();
+            // 连接
             connectOne(sid);
         }      
     }
@@ -492,6 +498,7 @@ public class QuorumCnxManager {
                         setSockOpts(client);
                         LOG.info("Received connection request "
                                 + client.getRemoteSocketAddress());
+                        // 处理接受到的请求
                         receiveConnection(client);
                         numRetries = 0;
                     }
@@ -756,6 +763,7 @@ public class QuorumCnxManager {
                     byte[] msgArray = new byte[length];
                     din.readFully(msgArray, 0, length);
                     ByteBuffer message = ByteBuffer.wrap(msgArray);
+                    //放入receive queue
                     addToRecvQueue(new Message(message.duplicate(), sid));
                 }
             } catch (Exception e) {
@@ -880,6 +888,7 @@ public class QuorumCnxManager {
      */
     public Message pollRecvQueue(long timeout, TimeUnit unit)
        throws InterruptedException {
+        // 从receive queue中取出
        return recvQueue.poll(timeout, unit);
     }
 }

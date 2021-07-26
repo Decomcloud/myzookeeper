@@ -594,6 +594,7 @@ public class QuorumPeer extends Thread implements QuorumStats.Provider {
         case 3:
             //zk节点间网络通信的组件
             qcm = new QuorumCnxManager(this);
+            // 启动listener监听机器之间连接的端口
             QuorumCnxManager.Listener listener = qcm.listener;
             if(listener != null){
                 // org.apache.zookeeper.server.quorum.QuorumCnxManager.Listener.run
