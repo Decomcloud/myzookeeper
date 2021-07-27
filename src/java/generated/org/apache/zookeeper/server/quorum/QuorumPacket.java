@@ -62,6 +62,7 @@ public class QuorumPacket implements Record {
     authinfo=m_;
   }
   public void serialize(OutputArchive a_, String tag) throws java.io.IOException {
+    // 有开始和结束的tag, 解析的时候按照固定格式解析, 保证每次解析出来都是一个完整的数据包, 不会出现粘包和拆包的问题
     a_.startRecord(this,tag);
     a_.writeInt(type,"type");
     a_.writeLong(zxid,"zxid");
@@ -79,6 +80,7 @@ public class QuorumPacket implements Record {
     a_.endRecord(this,tag);
   }
   public void deserialize(InputArchive a_, String tag) throws java.io.IOException {
+    //从tag开始,反序列化到tag结束
     a_.startRecord(tag);
     type=a_.readInt("type");
     zxid=a_.readLong("zxid");

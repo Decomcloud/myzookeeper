@@ -237,9 +237,12 @@ public class Learner {
             }
             Thread.sleep(1000);
         }
+        // 获取leader输入流, 缓冲输入流, archive输入流
         leaderIs = BinaryInputArchive.getArchive(new BufferedInputStream(
                 sock.getInputStream()));
+        // 缓冲输出流
         bufferedOutput = new BufferedOutputStream(sock.getOutputStream());
+        // archive输出流
         leaderOs = BinaryOutputArchive.getArchive(bufferedOutput);
     }   
     
@@ -264,8 +267,12 @@ public class Learner {
          */
         LearnerInfo li = new LearnerInfo(self.getId(), 0x10000);
         ByteArrayOutputStream bsid = new ByteArrayOutputStream();
+        // jute封装了输出流
         BinaryOutputArchive boa = BinaryOutputArchive.getArchive(bsid);
+        // 序列化LearnerInfo, 写入了ByteArrayOutputStream
+        // 最后调用org.apache.zookeeper.server.quorum.LearnerInfo.serialize
         boa.writeRecord(li, "LearnerInfo");
+        // 把字节数组输出流里的LearnerInfo对象序列化后的数据转换为字节数组, 设置到了QuorumPacket里面
         qp.setData(bsid.toByteArray());
         
         writePacket(qp, true);

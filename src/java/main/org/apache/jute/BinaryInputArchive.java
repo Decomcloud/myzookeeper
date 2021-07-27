@@ -26,6 +26,8 @@ import java.io.InputStream;
 /**
  *
  */
+// jute用于序列化和反序列化
+// 有开始和结束的tag, 解析的时候按照固定格式解析, 保证每次解析出来都是一个完整的数据包, 不会出现粘包和拆包的问题
 public class BinaryInputArchive implements InputArchive {
     
     private DataInput in;

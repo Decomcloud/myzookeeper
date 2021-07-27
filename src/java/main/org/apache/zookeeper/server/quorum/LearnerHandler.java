@@ -237,8 +237,9 @@ public class LearnerHandler extends Thread {
                     .getInputStream()));
             bufferedOutput = new BufferedOutputStream(sock.getOutputStream());
             oa = BinaryOutputArchive.getArchive(bufferedOutput);
-
+            // 读取follower等发过来的数据
             QuorumPacket qp = new QuorumPacket();
+            // 等待读取数据, 并且反序列化
             ia.readRecord(qp, "packet");
             if(qp.getType() != Leader.FOLLOWERINFO && qp.getType() != Leader.OBSERVERINFO){
             	LOG.error("First packet " + qp.toString()
@@ -308,7 +309,8 @@ public class LearnerHandler extends Thread {
             
             /* we are sending the diff check if we have proposals in memory to be able to 
              * send a diff to the 
-             */ 
+             */
+            // 注册完毕后, 进行数据同步
             ReentrantReadWriteLock lock = leader.zk.getZKDatabase().getLogLock();
             ReadLock rl = lock.readLock();
             try {
@@ -429,6 +431,7 @@ public class LearnerHandler extends Thread {
             bufferedOutput.flush();
             
             // Start sending packets
+            // 单独启动线程, 发送数据
             new Thread() {
                 public void run() {
                     Thread.currentThread().setName(
@@ -470,7 +473,7 @@ public class LearnerHandler extends Thread {
             // using the data
             //
             queuedPackets.add(new QuorumPacket(Leader.UPTODATE, -1, null, null));
-
+            // 从follower接受数据
             while (true) {
                 qp = new QuorumPacket();
                 ia.readRecord(qp, "packet");

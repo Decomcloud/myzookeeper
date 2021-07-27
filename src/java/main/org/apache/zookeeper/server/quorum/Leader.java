@@ -181,6 +181,9 @@ public class Leader {
         try {
             ss = new ServerSocket();
             ss.setReuseAddress(true);
+            // servers = xx.xx.xx.xx:2888:3888
+            // 2888: leader与follower互相之间进行通信的端口号
+            // 3888: 专门用来选举
             ss.bind(new InetSocketAddress(self.getQuorumAddress().getPort()));
         } catch (BindException e) {
             LOG.error("Couldn't bind to port "
@@ -357,6 +360,8 @@ public class Leader {
 
             // Start thread that waits for connection requests from 
             // new followers.
+            // 等待follower建立连接
+            // learner : follower
             cnxAcceptor = new LearnerCnxAcceptor();
             cnxAcceptor.start();
             
